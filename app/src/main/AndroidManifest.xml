@@ -19,33 +19,53 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AircraftWar">
 
-        <!-- 主菜单入口 Activity -->
+        <!-- ① 登录/注册界面（App 启动入口） -->
         <activity
-            android:name=".sufaceview.MainActivity"
+            android:name=".ui.LoginActivity"
             android:exported="true"
-            android:screenOrientation="portrait">
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- 游戏主界面 Activity（全屏，竖屏） -->
+        <!-- ② 主菜单 -->
+        <activity
+            android:name=".sufaceview.MainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ③ 游戏主界面（全屏竖屏，OpenGL ES） -->
         <activity
             android:name=".ui.GameActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.AircraftWar.NoActionBar" />
+            android:theme="@style/Theme.AircraftWar.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
-        <!-- 游戏结束结算界面 -->
+        <!-- ④ 游戏结束结算 -->
         <activity
             android:name=".ui.GameOverActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
-        <!-- 排行榜界面 -->
+        <!-- ⑤ 排行榜 -->
         <activity
             android:name=".ui.LeaderboardActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑥ 英雄召唤（抽卡） -->
+        <activity
+            android:name=".ui.GachaActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑦ 游戏设置（画质/阴影/分辨率） -->
+        <activity
+            android:name=".ui.SettingsActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 

@@ -1,16 +1,19 @@
 package edu.hitsz.db;
 
 import android.content.Context;
-import androidx.room.Database;
-import androidx.room.Room;
-import androidx.room.RoomDatabase;
+import androidx.room.*;
 
-/** Room数据库单例（线程安全的双重检查锁）*/
-@Database(entities = {ScoreEntity.class}, version = 1, exportSchema = false)
+/**
+ * Room 数据库单例（v2：新增 users 表）
+ * fallbackToDestructiveMigration → 版本升级时自动重建（demo可接受）
+ */
+@Database(entities = {ScoreEntity.class, UserEntity.class}, version = 2, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
+
     private static volatile AppDatabase INSTANCE;
 
     public abstract ScoreDao scoreDao();
+    public abstract UserDao  userDao();
 
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {
@@ -19,7 +22,9 @@ public abstract class AppDatabase extends RoomDatabase {
                     INSTANCE = Room.databaseBuilder(
                             context.getApplicationContext(),
                             AppDatabase.class, "aircraft_war.db"
-                    ).build();
+                    )
+                    .fallbackToDestructiveMigration()   // v1→v2 直接重建
+                    .build();
                 }
             }
         }

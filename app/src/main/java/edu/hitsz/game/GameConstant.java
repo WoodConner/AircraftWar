@@ -42,9 +42,10 @@ public class GameConstant {
     public static final int LEADERBOARD_SIZE = 20;
 
     // 难度标识
-    public static final String DIFFICULTY_EASY = "简单";
+    public static final String DIFFICULTY_EASY   = "简单";
     public static final String DIFFICULTY_NORMAL = "普通";
-    public static final String DIFFICULTY_HARD = "困难";
+    public static final String DIFFICULTY_HARD   = "困难";
+    public static final String DIFFICULTY_HELL   = "地狱";
 
     // 默认玩家名称
     public static final String DEFAULT_PLAYER_NAME = "玩家";
