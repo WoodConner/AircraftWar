@@ -388,6 +388,7 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
             @Override
             public void onError(String error) {
                 runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing()) return;
                     showError("创建房间失败：" + error);
                     btnCreateRoom.setEnabled(true);
                     btnJoinRoom.setEnabled(true);
@@ -440,11 +441,14 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
                 currentRoomId = roomId;
                 currentPlayerId = playerId;
                 isRoomCreator = false;
-                
+
                 runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing()) return;
                     roomInfoPanel.setVisibility(View.VISIBLE);
-                    tvStatus.setText("已加入房间\n对手: " + opponentName);
-                    btnStartBattle.setEnabled(true);
+                    tvStatus.setText("✅ 已加入房间！\n对手: " + opponentName + "\n等待房主开始游戏...");
+                    btnStartBattle.setEnabled(false);
+                    btnStartBattle.setText("等待房主开始...");
+                    startWaitingForGame();
                 });
             }
             
@@ -454,6 +458,7 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
             @Override
             public void onError(String error) {
                 runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing()) return;
                     showError("加入房间失败：" + error);
                     btnCreateRoom.setEnabled(true);
                     btnJoinRoom.setEnabled(true);
@@ -490,35 +495,32 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
                 // 使用GET /battle/status接口检查房间状态
                 battleClient.checkRoomStatus(new BattleClient.RoomStatusCallback() {
                     @Override
-                    public void onStatusReceived(String status, boolean hasPlayer2, String player2Name) {
-                        pollFailCount = 0; // 成功则重置计数
-                        
+                    public void onStatusReceived(String status, boolean hasPlayer2, String player2Name, boolean gameStarted) {
+                        pollFailCount = 0;
+
                         if (hasPlayer2 && player2Name != null && !"等待中...".equals(player2Name)) {
-                            // 对手已加入
                             battleClient.setOpponentName(player2Name);
                             runOnUiThread(() -> {
+                                if (isDestroyed() || isFinishing()) return;
                                 tvStatus.setText("✅ 对手已加入！\n对手: " + player2Name);
                                 btnStartBattle.setEnabled(true);
                             });
-                            // 停止轮询
                             Log.i("MultiplayerLobby", "对手已加入，停止轮询");
                         } else {
-                            // 继续轮询
                             pollHandler.postDelayed(self, 2000);
                         }
                     }
-                    
+
                     @Override
                     public void onError(String error) {
                         pollFailCount++;
                         Log.w("MultiplayerLobby", "轮询失败 (" + pollFailCount + "/" + MAX_POLL_FAILS + "): " + error);
-                        
+
                         if (pollFailCount < MAX_POLL_FAILS) {
-                            // 继续轮询（房间可能还在初始化）
-                            pollHandler.postDelayed(self, 3000); // 增加到3秒，减少服务器压力
+                            pollHandler.postDelayed(self, 3000);
                         } else {
-                            // 超过最大失败次数，停止轮询
                             runOnUiThread(() -> {
+                                if (isDestroyed() || isFinishing()) return;
                                 String detailedError = "连接失败 (" + pollFailCount + "次)\n\n" +
                                         "错误信息：" + error + "\n\n" +
                                         "请检查：\n" +
@@ -543,7 +545,7 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
             showError("房间信息不完整");
             return;
         }
-        
+
         String portStr = etPort.getText().toString().trim();
         int port = 8080;
         if (!portStr.isEmpty()) {
@@ -553,7 +555,26 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
                 port = 8080;
             }
         }
-        
+        final int finalPort = port;
+
+        if (isRoomCreator) {
+            // 先通知服务器游戏开始，再跳转（fail-open：失败也继续）
+            battleClient.startGame(new BattleClient.SimpleCallback() {
+                @Override
+                public void onSuccess() {
+                    if (!isDestroyed() && !isFinishing()) launchGameActivity(finalPort);
+                }
+                @Override
+                public void onError(String error) {
+                    if (!isDestroyed() && !isFinishing()) launchGameActivity(finalPort);
+                }
+            });
+        } else {
+            launchGameActivity(finalPort);
+        }
+    }
+
+    private void launchGameActivity(int port) {
         Intent intent = new Intent(this, MultiplayerGameActivity.class);
         intent.putExtra("roomId", currentRoomId);
         intent.putExtra("playerId", currentPlayerId);
@@ -562,6 +583,71 @@ public class MultiplayerLobbyActivity extends AppCompatActivity {
         intent.putExtra("isCreator", isRoomCreator);
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * Player B 专用：轮询等待房主开始游戏信号，收到后自动跳转。
+     * 超时后提供强制开始选项。
+     */
+    private void startWaitingForGame() {
+        final int MAX_WAIT_FAILS = 15; // ~45 秒超时
+        final int[] waitFails = {0};
+
+        final Runnable waitRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (currentRoomId == null || isRoomCreator || isFinishing() || isDestroyed()) return;
+
+                if (waitFails[0] >= MAX_WAIT_FAILS) {
+                    runOnUiThread(() -> {
+                        if (isDestroyed() || isFinishing()) return;
+                        new androidx.appcompat.app.AlertDialog.Builder(MultiplayerLobbyActivity.this)
+                            .setTitle("等待超时")
+                            .setMessage("房主长时间未开始游戏，是否强制进入？")
+                            .setPositiveButton("强制开始", (d, w) -> startBattle())
+                            .setNegativeButton("返回大厅", (d, w) -> {
+                                btnCreateRoom.setEnabled(true);
+                                btnJoinRoom.setEnabled(true);
+                                btnStartBattle.setText("⚔️ 开始对战");
+                                roomInfoPanel.setVisibility(View.GONE);
+                                currentRoomId = null;
+                            })
+                            .show();
+                    });
+                    return;
+                }
+
+                final Runnable self = this;
+                battleClient.checkRoomStatus(new BattleClient.RoomStatusCallback() {
+                    @Override
+                    public void onStatusReceived(String status, boolean hasPlayer2, String player2Name, boolean gameStarted) {
+                        waitFails[0] = 0;
+                        // gameStarted=true 表示内置服务器已收到房主开始信号；
+                        // status=="playing" 兼容独立服务器（加入即playing）
+                        if (gameStarted || "playing".equals(status)) {
+                            runOnUiThread(() -> {
+                                if (!isDestroyed() && !isFinishing()) startBattle();
+                            });
+                        } else {
+                            pollHandler.postDelayed(self, 2000);
+                        }
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        waitFails[0]++;
+                        Log.w("MultiplayerLobby", "等待游戏开始失败 (" + waitFails[0] + "): " + error);
+                        if (waitFails[0] < MAX_WAIT_FAILS) {
+                            pollHandler.postDelayed(self, 3000);
+                        } else {
+                            // 触发超时逻辑（下次run会处理）
+                            pollHandler.post(self);
+                        }
+                    }
+                });
+            }
+        };
+        pollHandler.postDelayed(waitRunnable, 1000);
     }
     
     /**

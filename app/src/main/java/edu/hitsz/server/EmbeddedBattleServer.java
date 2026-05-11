@@ -186,14 +186,17 @@ public class EmbeddedBattleServer {
                 }
             }
             
-            // 读取请求体
+            // 读取请求体（循环直到读满，防止 TCP 分片导致部分读）
             String body = "";
             if (contentLength > 0) {
                 char[] buffer = new char[contentLength];
-                int read = reader.read(buffer, 0, contentLength);
-                if (read > 0) {
-                    body = new String(buffer, 0, read);
+                int totalRead = 0;
+                while (totalRead < contentLength) {
+                    int read = reader.read(buffer, totalRead, contentLength - totalRead);
+                    if (read == -1) break;
+                    totalRead += read;
                 }
+                body = new String(buffer, 0, totalRead);
             }
             
             // 路由处理
@@ -229,6 +232,8 @@ public class EmbeddedBattleServer {
                 return handleUpdateScore(body);
             } else if ("GET".equals(method) && path.startsWith("/battle/status")) {
                 return handleGetStatus(path);
+            } else if ("POST".equals(method) && path.startsWith("/battle/start")) {
+                return handleStartGame(body);
             } else if ("POST".equals(method) && path.startsWith("/battle/end")) {
                 return handleEndBattle(body);
             } else {
@@ -274,7 +279,7 @@ public class EmbeddedBattleServer {
         
         room.player2Name = playerName;
         room.player2Id = "P2_" + System.currentTimeMillis();
-        room.status = "ready"; // 改为ready状态
+        room.status = "ready";
         room.startTime = System.currentTimeMillis();
         
         JsonObject response = new JsonObject();
@@ -354,6 +359,7 @@ public class EmbeddedBattleServer {
         JsonObject response = new JsonObject();
         response.addProperty("success", true);
         response.addProperty("status", room.status);
+        response.addProperty("gameStarted", room.gameStarted);
         response.addProperty("player1Name", room.player1Name);
         response.addProperty("player2Name", room.player2Name != null ? room.player2Name : "等待中...");
         response.addProperty("hasPlayer2", room.player2Id != null);
@@ -377,6 +383,28 @@ public class EmbeddedBattleServer {
         return gson.toJson(response);
     }
     
+    private String handleStartGame(String body) {
+        JsonObject req = gson.fromJson(body, JsonObject.class);
+        String roomId = req.get("roomId").getAsString();
+        String playerId = req.get("playerId").getAsString();
+
+        BattleRoom room = rooms.get(roomId);
+        if (room == null) {
+            return "{\"error\":\"房间不存在\"}";
+        }
+        if (!playerId.equals(room.player1Id)) {
+            return "{\"error\":\"只有房主可以开始游戏\"}";
+        }
+
+        room.gameStarted = true;
+        room.status = "playing";
+
+        JsonObject response = new JsonObject();
+        response.addProperty("success", true);
+        Log.i(TAG, "[游戏开始] " + roomId);
+        return gson.toJson(response);
+    }
+
     private String handleEndBattle(String body) {
         JsonObject req = gson.fromJson(body, JsonObject.class);
         String roomId = req.get("roomId").getAsString();
@@ -439,16 +467,19 @@ public class EmbeddedBattleServer {
         String player2Name;
         int player2Score;
         boolean player2Dead;
-        
+
+        boolean gameStarted;
+
         long startTime;
         long endTime;
         long lastUpdateTime;
-        
+
         BattleRoom(String roomId, String player1Name) {
             this.roomId = roomId;
             this.player1Name = player1Name;
             this.player1Id = "P1_" + System.currentTimeMillis();
             this.status = "waiting";
+            this.gameStarted = false;
             this.player1Score = 0;
             this.player2Score = 0;
             this.player1Dead = false;

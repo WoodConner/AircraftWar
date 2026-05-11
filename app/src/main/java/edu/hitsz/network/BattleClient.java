@@ -44,8 +44,13 @@ public class BattleClient {
         void onError(String error);
     }
     
+    public interface SimpleCallback {
+        void onSuccess();
+        void onError(String error);
+    }
+
     public interface RoomStatusCallback {
-        void onStatusReceived(String status, boolean hasPlayer2, String player2Name);
+        void onStatusReceived(String status, boolean hasPlayer2, String player2Name, boolean gameStarted);
         void onError(String error);
     }
     
@@ -278,8 +283,9 @@ public class BattleClient {
                             String status = json.get("status").getAsString();
                             boolean hasPlayer2 = json.has("hasPlayer2") && json.get("hasPlayer2").getAsBoolean();
                             String player2Name = json.has("player2Name") ? json.get("player2Name").getAsString() : null;
-                            
-                            mainHandler.post(() -> callback.onStatusReceived(status, hasPlayer2, player2Name));
+                            boolean gameStarted = json.has("gameStarted") && json.get("gameStarted").getAsBoolean();
+
+                            mainHandler.post(() -> callback.onStatusReceived(status, hasPlayer2, player2Name, gameStarted));
                         } else {
                             mainHandler.post(() -> callback.onError("获取状态失败"));
                         }
@@ -294,6 +300,40 @@ public class BattleClient {
         });
     }
     
+    /**
+     * 通知服务器游戏开始（仅房主调用）。fail-open：即使服务器不支持此接口也调 onSuccess。
+     */
+    public void startGame(SimpleCallback callback) {
+        if (roomId == null || playerId == null) {
+            mainHandler.post(() -> { if (callback != null) callback.onSuccess(); });
+            return;
+        }
+
+        JsonObject json = new JsonObject();
+        json.addProperty("roomId", roomId);
+        json.addProperty("playerId", playerId);
+
+        RequestBody body = RequestBody.create(gson.toJson(json), JSON);
+        Request request = new Request.Builder()
+                .url(baseUrl + "/battle/start")
+                .post(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.w(TAG, "startGame 网络失败（忽略）", e);
+                mainHandler.post(() -> { if (callback != null) callback.onSuccess(); });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                response.close();
+                mainHandler.post(() -> { if (callback != null) callback.onSuccess(); });
+            }
+        });
+    }
+
     public void endBattle() {
         if (roomId == null) return;
         

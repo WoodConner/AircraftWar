@@ -51,47 +51,50 @@ public class ServerManager {
      * 启动服务器（指定端口）
      */
     public void startServer(int port) {
-        // 如果服务器已运行且端口不同，先停止
         if (isServerRunning && server != null && server.getPort() != port) {
             Log.i(TAG, "端口变更，重启服务器: " + server.getPort() + " -> " + port);
-            stopServer();
-            // 等待服务器完全停止
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            EmbeddedBattleServer old = server;
+            server = null;
+            isServerRunning = false;
+            // 在后台线程等待旧服务器释放端口，避免阻塞主线程
+            new Thread(() -> {
+                old.stop();
+                try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                launchServer(port);
+            }, "ServerRestart").start();
+            return;
         }
-        
+
         if (isServerRunning) {
             Log.w(TAG, "服务器已在运行，端口: " + port);
             return;
         }
-        
+
+        launchServer(port);
+    }
+
+    private void launchServer(int port) {
         server = new EmbeddedBattleServer(new EmbeddedBattleServer.ServerCallback() {
             @Override
-            public void onServerStarted(int port) {
+            public void onServerStarted(int startedPort) {
                 isServerRunning = true;
-                Log.i(TAG, "内置服务器已启动，端口: " + port);
+                Log.i(TAG, "内置服务器已启动，端口: " + startedPort);
             }
-            
+
             @Override
             public void onServerStopped() {
                 isServerRunning = false;
                 Log.i(TAG, "内置服务器已停止");
             }
-            
+
             @Override
             public void onError(String error) {
                 isServerRunning = false;
                 Log.e(TAG, "服务器错误: " + error);
             }
         });
-        
-        // 设置端口（必须在start之前）
         server.setPort(port);
         server.start();
-        
         Log.i(TAG, "正在启动服务器，端口: " + port);
     }
     
