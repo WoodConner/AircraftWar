@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 网络权限（在线排行榜 + 多人联机） -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+
+    <!-- OpenGL ES 2.0 声明（三渲二渲染必须） -->
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+
+    <application
+        android:name=".AircraftWarApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AircraftWar"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- ① 登录/注册界面（App 启动入口） -->
+        <activity
+            android:name=".ui.LoginActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- ② 主菜单 -->
+        <activity
+            android:name=".sufaceview.MainActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ③ 游戏主界面（全屏竖屏，OpenGL ES） -->
+        <activity
+            android:name=".ui.GameActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AircraftWar.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <!-- ④ 游戏结束结算 -->
+        <activity
+            android:name=".ui.GameOverActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑤ 排行榜 -->
+        <activity
+            android:name=".ui.LeaderboardActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑥ 英雄召唤（抽卡） -->
+        <activity
+            android:name=".ui.GachaActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑦ 游戏设置（画质/阴影/分辨率） -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑧ 多人对战大厅 -->
+        <activity
+            android:name=".ui.MultiplayerLobbyActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <!-- ⑨ 多人对战游戏 -->
+        <activity
+            android:name=".ui.MultiplayerGameActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AircraftWar.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <!-- ⑩ 多人对战结算 -->
+        <activity
+            android:name=".ui.MultiplayerResultActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+    </application>
+
+</manifest>

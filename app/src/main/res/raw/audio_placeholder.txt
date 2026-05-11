@@ -1,0 +1,22 @@
+# 音效文件占位符
+
+请将以下音效文件放入此目录：
+
+## 必需的音效文件：
+1. bgm.mp3 - 背景音乐
+2. sound_shoot.wav - 射击音效
+3. sound_enemy_die.wav - 敌机死亡音效
+4. sound_hero_die.wav - 英雄死亡音效
+5. sound_prop.wav - 道具音效
+6. sound_bomb.wav - 炸弹爆炸音效
+
+## 注意事项：
+- 文件名必须全部小写
+- 只能包含字母、数字和下划线
+- SoundManager已实现多线程音频处理（HandlerThread）
+- 如果文件缺失，游戏仍可正常运行，只是没有声音
+
+## 获取免费音效：
+- Freesound.org
+- OpenGameArt.org
+- Zapsplat.com
